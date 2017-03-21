@@ -4,7 +4,7 @@ CFLAGS = -std=c99 -lpthread -lssl -lcrypto -O3 -lm
 
 default: all
 
-all: bin speedup loadbalance
+all: bin speedup loadbalance original_speedup
 
 bin:
 	mkdir bin
@@ -14,6 +14,9 @@ speedup: src/speedup.c
 
 loadbalance: src/loadbalance.c
 	$(CC) $< $(CFLAGS) -o bin/loadbalance
+
+original_speedup: src/original_speedup.c
+	$(CC) $< $(CFLAGS) -o bin/original_speedup
 
 report: report.pdf
 
