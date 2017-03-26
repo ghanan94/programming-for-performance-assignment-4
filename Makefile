@@ -24,7 +24,14 @@ report.pdf: report/report.tex
 	cd report && pdflatex report.tex && pdflatex report.tex
 
 clean:
-	$(RM) bin/loadbalance
+	$(RM) bin/loadbalance bin/speedup bin/original_speedup
 	$(RM) report/*.aux report/*.log
+
+run:
+	bin/original_speedup
+	mv results.csv results.o1.csv
+
+	bin/speedup
+	mv results.csv results.s1.csv
 
 .PHONY: speedup loadbalance report clean
