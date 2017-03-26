@@ -1,6 +1,7 @@
 RM = rm -f
 CC = gcc
 CFLAGS = -std=c99 -lpthread -lssl -lcrypto -O3 -lm
+PERCENTILE_SCRIPT = scripts/percentile.py
 
 default: all
 
@@ -29,9 +30,9 @@ clean:
 
 run:
 	bin/original_speedup
-	mv results.csv results.o1.csv
+	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
 	bin/speedup
-	mv results.csv results.s1.csv
+	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
 .PHONY: speedup loadbalance report clean
