@@ -29,10 +29,10 @@ clean:
 	$(RM) report/*.aux report/*.log
 
 run:
-	bin/original_speedup
+	bin/original_speedup -l 1
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
-	bin/speedup
+	bin/speedup -l 1
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
 .PHONY: speedup loadbalance report clean
