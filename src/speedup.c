@@ -67,7 +67,13 @@ inline void add_to_queue( queue_t* queue, job_t* job ) {
     if (queue->head == NULL) {
         queue->head = job;
     } else {
-        queue->tail->next = job;
+        job_t* j = queue->head;
+        while ( j->next != NULL ) {
+            j = j->next;
+        }
+        j->next = job;
+
+        //queue->tail->next = job;
     }
 
     queue->tail = job;
