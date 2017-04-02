@@ -33,6 +33,7 @@ typedef struct job_t {
 typedef struct {
     job_t* head;
     job_t* tail;
+    int count;
     pthread_mutex_t* mutex;
 } queue_t;
 
@@ -61,14 +62,19 @@ void enqueue( job_t* toEnqueue, unsigned int* generator_seed );
 queue_t * queues;
 pthread_t * threads;
 
-void add_to_queue(queue_t* queue, job_t* job) {
+static inline void add_to_queue(queue_t* queue, job_t* job) {
     pthread_mutex_lock(queue->mutex);
+
+    queue->count++;
+
     if (queue->head == NULL) {
         queue->head = job;
     } else {
         queue->tail->next = job;
     }
+
     queue->tail = job;
+
     pthread_mutex_unlock(queue->mutex);
 }
 
@@ -187,6 +193,7 @@ int main(int argc, char **argv) {
 
     for ( int i = 0; i < num_queues; ++i ) {
         queues[i].head = NULL;
+        queues[i].count = 0;
         queues[i].mutex = malloc( sizeof( pthread_mutex_t ) );
         pthread_mutex_init(queues[i].mutex, NULL);
     }
@@ -237,6 +244,11 @@ void *fetch_and_execute( void* arg ) {
         } else {
             job_t* job = my_q->head;
             my_q->head = my_q->head->next;
+            if (my_q->head == NULL) {
+                my_q->tail = NULL;
+            }
+            my_q->count--;
+
             pthread_mutex_unlock( my_q->mutex );
 
             execute( job );
@@ -334,7 +346,109 @@ void enqueue( job_t* job, unsigned int * generator_seed ) {
 }
 
 void *load_balance( void* args ) {
+    int avg;
+    int i;
+    int j;
+    job_t* job;
+    job_t* job_list;
 
+    job_list = NULL;
+
+    while (terminate == 0) {
+        job_list = NULL;
+        usleep(1000000);
+
+        //
+        // Calculate avg number
+        //
+        avg = 0;
+        for (i = 0; i < num_queues; ++i) {
+            pthread_mutex_lock(queues[i].mutex);
+            avg += queues[i].count;
+        }
+        avg /= num_queues;
+
+        if (avg > 4)
+        {
+            //
+            // max length of any queue should be avg
+            //
+            for (i = 0; i < num_queues; ++i) {
+                if (queues[i].count > avg)
+                {
+                    job_t* temp;
+
+                    job = queues[i].head;
+
+                    for (j = 0; j < avg - 1; ++j) {
+                        job = job->next;
+                    }
+
+                    temp = job->next;
+                    job->next = NULL;
+
+                    queues[i].tail->next = job_list;
+                    queues[i].tail = job;
+                    job_list = temp;
+                    queues[i].count = avg;
+                }
+            }
+
+            //
+            // Add to any queues at have less than avg length (except last)
+            //
+            for (i = 0; i < num_queues - 1; ++i) {
+                if (queues[i].count < avg)
+                {
+                    if (queues[i].head == NULL)
+                    {
+                        queues[i].head = job_list;
+                    }
+                    else
+                    {
+                        queues[i].tail->next = job_list;
+                    }
+
+                    for (j = queues[i].count; j < avg - 1; ++j) {
+                        job_list = job_list->next;
+                    }
+
+                    queues[i].tail = job_list;
+                    job_list = job_list->next;
+                    queues[i].tail->next = NULL;
+                    queues[i].count = avg;
+                }
+            }
+
+            //
+            // Put rest in last queue.
+            // either this queue has less than the other queues,
+            // or is equal to the avg. after this, the final
+            // queue will have at max (num_queues - 1) jobs more than the
+            // other queues
+            //
+            if (queues[num_queues - 1].head == NULL)
+            {
+                queues[num_queues - 1].head = job_list;
+            }
+            else
+            {
+                queues[num_queues - 1].tail->next = job_list;
+            }
+
+            //
+            // Update tail pointer
+            //
+            while ( queues[num_queues - 1].tail->next != NULL ) {
+                queues[num_queues - 1].tail = queues[num_queues - 1].tail->next;
+                queues[num_queues - 1].count++;
+            }
+        }
+
+        for (i = 0; i < num_queues; ++i) {
+            pthread_mutex_unlock(queues[i].mutex);
+        }
+    }
 
     pthread_exit( NULL );
 }

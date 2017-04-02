@@ -60,7 +60,7 @@ void enqueue( job_t* toEnqueue, unsigned int* generator_seed );
 queue_t * queues;
 pthread_t * threads;
 
-inline void add_to_queue( queue_t* queue, job_t* job ) {
+static inline void add_to_queue( queue_t* queue, job_t* job ) {
     pthread_mutex_lock(queue->mutex);
 
     if (queue->head == NULL) {
