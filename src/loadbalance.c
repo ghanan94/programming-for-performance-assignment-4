@@ -70,7 +70,7 @@ static inline void add_to_queue(queue_t* queue, job_t* job) {
     if (queue->head == NULL) {
         queue->head = job;
     } else {
-        job_t* j = selected->head;
+        job_t* j = queue->head;
         while ( j->next != NULL ) {
             j = j->next;
         }
@@ -199,6 +199,7 @@ int main(int argc, char **argv) {
 
     for ( int i = 0; i < num_queues; ++i ) {
         queues[i].head = NULL;
+        queues[i].tail = NULL;
         queues[i].count = 0;
         queues[i].mutex = malloc( sizeof( pthread_mutex_t ) );
         pthread_mutex_init(queues[i].mutex, NULL);
@@ -225,12 +226,11 @@ int main(int argc, char **argv) {
         free(queues[l].mutex);
     }
 
-    free(queues);
-
     if ( 1 == balance_load ) {
         pthread_join( loadbalancer, NULL );
     }
 
+    free(queues);
     free( threads );
     fclose( csv );
     pthread_exit( NULL );
@@ -445,8 +445,9 @@ void *load_balance( void* args ) {
             //
             // Update tail pointer
             //
-            while ( queues[num_queues - 1].tail->next != NULL ) {
-                queues[num_queues - 1].tail = queues[num_queues - 1].tail->next;
+            while ( job_list ) {
+                queues[num_queues - 1].tail = job_list;
+                job_list = job_list->next;
                 queues[num_queues - 1].count++;
             }
         }
