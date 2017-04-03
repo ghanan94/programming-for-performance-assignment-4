@@ -70,6 +70,7 @@ static inline void add_to_queue(queue_t* queue, job_t* job) {
     if (queue->head == NULL) {
         queue->head = job;
     } else {
+
         job_t* j = queue->head;
         while ( j->next != NULL ) {
             j = j->next;
@@ -362,7 +363,7 @@ void *load_balance( void* args ) {
 
     while (terminate == 0) {
         job_list = NULL;
-        usleep(1000000);
+        usleep(100000);
 
         //
         // Calculate avg number
@@ -412,7 +413,14 @@ void *load_balance( void* args ) {
                     }
                     else
                     {
-                        queues[i].tail->next = job_list;
+
+                        job_t* temp = queues[i].head;
+                        while ( temp->next != NULL ) {
+                            temp = temp->next;
+                        }
+                        temp->next = job_list;
+
+                        //queues[i].tail->next = job_list;
                     }
 
                     for (j = queues[i].count; j < avg - 1; ++j) {
@@ -439,7 +447,14 @@ void *load_balance( void* args ) {
             }
             else
             {
-                queues[num_queues - 1].tail->next = job_list;
+
+                job_t* temp = queues[num_queues - 1].head;
+                while ( temp->next != NULL ) {
+                    temp = temp->next;
+                }
+                temp->next = job_list;
+
+                //queues[num_queues - 1].tail->next = job_list;
             }
 
             //
