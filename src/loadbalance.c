@@ -33,7 +33,7 @@ typedef struct job_t {
 typedef struct {
     job_t* head;
     job_t* tail;
-    int count;
+    int total_rounds;
     pthread_mutex_t* mutex;
 } queue_t;
 
@@ -65,7 +65,7 @@ pthread_t * threads;
 static inline void add_to_queue(queue_t* queue, job_t* job) {
     pthread_mutex_lock(queue->mutex);
 
-    queue->count++;
+    queue->total_rounds += job->rounds;
 
     if (queue->head == NULL) {
         queue->head = job;
@@ -201,7 +201,7 @@ int main(int argc, char **argv) {
     for ( int i = 0; i < num_queues; ++i ) {
         queues[i].head = NULL;
         queues[i].tail = NULL;
-        queues[i].count = 0;
+        queues[i].total_rounds = 0;
         queues[i].mutex = malloc( sizeof( pthread_mutex_t ) );
         pthread_mutex_init(queues[i].mutex, NULL);
     }
@@ -254,8 +254,7 @@ void *fetch_and_execute( void* arg ) {
             if (my_q->head == NULL) {
                 my_q->tail = NULL;
             }
-            my_q->count--;
-
+            my_q->total_rounds -= job->rounds;
             pthread_mutex_unlock( my_q->mutex );
 
             execute( job );
@@ -371,41 +370,52 @@ void *load_balance( void* args ) {
         avg = 0;
         for (i = 0; i < num_queues; ++i) {
             pthread_mutex_lock(queues[i].mutex);
-            avg += queues[i].count;
+            avg += queues[i].total_rounds;
+
         }
         avg /= num_queues;
 
-        if (avg > 4)
+        if (avg > max_rounds)
         {
+
             //
             // max length of any queue should be avg
             //
             for (i = 0; i < num_queues; ++i) {
-                if (queues[i].count > avg)
+                if (queues[i].total_rounds > avg)
                 {
-                    job_t* temp;
-
+                    //
+                    // Find the point where we start to have
+                    // too much work for this queue ("extra" jobs)
+                    //
                     job = queues[i].head;
+                    queues[i].total_rounds = job->rounds;
 
-                    for (j = 0; j < avg - 1; ++j) {
+                    while (queues[i].total_rounds < avg) {
                         job = job->next;
+                        queues[i].total_rounds += job->rounds;
                     }
 
-                    temp = job->next;
-                    job->next = NULL;
-
+                    //
+                    // Add "extra" jobs from this queue to list of
+                    // other "extra" jobs
+                    //
                     queues[i].tail->next = job_list;
+                    job_list = job->next;
+
+                    //
+                    // Remove "extra" jobs from this queue
+                    //
+                    job->next = NULL;
                     queues[i].tail = job;
-                    job_list = temp;
-                    queues[i].count = avg;
                 }
             }
 
             //
             // Add to any queues at have less than avg length (except last)
             //
-            for (i = 0; i < num_queues - 1; ++i) {
-                if (queues[i].count < avg)
+            for (i = 0; i < num_queues - 1 && job_list; ++i) {
+                if (queues[i].total_rounds < avg)
                 {
                     if (queues[i].head == NULL)
                     {
@@ -413,7 +423,6 @@ void *load_balance( void* args ) {
                     }
                     else
                     {
-
                         job_t* temp = queues[i].head;
                         while ( temp->next != NULL ) {
                             temp = temp->next;
@@ -423,47 +432,77 @@ void *load_balance( void* args ) {
                         //queues[i].tail->next = job_list;
                     }
 
-                    for (j = queues[i].count; j < avg - 1; ++j) {
-                        job_list = job_list->next;
+                    //
+                    // Add jobs to this queue to give it more work
+                    //
+                    queues[i].tail = job_list;
+                    queues[i].total_rounds += job_list->rounds;
+
+                    //
+                    // Find the point where the total_rounds of this queue
+                    // is equal to or just above average (make it approximately avg)
+                    //
+                    while (queues[i].total_rounds < avg && queues[i].tail->next) {
+                        queues[i].tail = queues[i].tail->next;
+                        queues[i].total_rounds += queues[i].tail->rounds;
                     }
 
-                    queues[i].tail = job_list;
-                    job_list = job_list->next;
+                    //
+                    // Update list of "extra" jobs to the one after
+                    // the job that was just added to this queue
+                    //
+                    job_list = queues[i].tail->next;
+
+                    //
+                    // Detach newly last job to this queue from rest
+                    // of list of "extra" jobs
+                    //
                     queues[i].tail->next = NULL;
-                    queues[i].count = avg;
                 }
             }
 
             //
-            // Put rest in last queue.
-            // either this queue has less than the other queues,
-            // or is equal to the avg. after this, the final
-            // queue will have at max (num_queues - 1) jobs more than the
-            // other queues
+            // If there is still "extra" jobs left, put it in the final queue (everything else
+            // is approximately avg so there shouldn't be many jobs left to throw off
+            // the balance that much).
             //
-            if (queues[num_queues - 1].head == NULL)
-            {
-                queues[num_queues - 1].head = job_list;
-            }
-            else
-            {
-
-                job_t* temp = queues[num_queues - 1].head;
-                while ( temp->next != NULL ) {
-                    temp = temp->next;
+            if (job_list != NULL) {
+                //
+                // Put rest in last queue.
+                // either this queue has less than the other queues,
+                // or is equal to the avg. after this, the final
+                // queue will have at max (num_queues - 1) jobs more than the
+                // other queues
+                //
+                if (queues[num_queues - 1].head == NULL)
+                {
+                    queues[num_queues - 1].head = job_list;
                 }
-                temp->next = job_list;
+                else
+                {
+                    job_t* temp = queues[num_queues - 1].head;
+                    while ( temp->next != NULL ) {
+                        temp = temp->next;
+                    }
+                    temp->next = job_list;
 
-                //queues[num_queues - 1].tail->next = job_list;
-            }
+                    //queues[num_queues - 1].tail->next = job_list;
+                }
 
-            //
-            // Update tail pointer
-            //
-            while ( job_list ) {
+                //
+                // Add jobs to this queue to give it more work
+                //
                 queues[num_queues - 1].tail = job_list;
-                job_list = job_list->next;
-                queues[num_queues - 1].count++;
+                queues[num_queues - 1].total_rounds += queues[num_queues - 1].tail->rounds;
+
+                //
+                // Update tail pointer and total_rounds
+                //
+                while ( queues[num_queues - 1].tail->next != NULL )
+                {
+                    queues[num_queues - 1].tail = queues[num_queues - 1].tail->next;
+                    queues[num_queues - 1].total_rounds += queues[num_queues - 1].tail->rounds;
+                }
             }
         }
 
