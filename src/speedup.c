@@ -18,6 +18,7 @@
 #define HASH_BUFFER_LENGTH 32
 #define OUTPUT_FILE_NAME "results.csv"
 
+#define NUM_THREADS_PER_QUEUE (2)
 
 typedef struct job_t {
     int id;
@@ -66,7 +67,13 @@ inline void add_to_queue( queue_t* queue, job_t* job ) {
     if (queue->head == NULL) {
         queue->head = job;
     } else {
-        queue->tail->next = job;
+        job_t* j = queue->head;
+        while ( j->next != NULL ) {
+            j = j->next;
+        }
+        j->next = job;
+
+        //queue->tail->next = job;
     }
 
     queue->tail = job;
@@ -184,7 +191,7 @@ int main(int argc, char **argv) {
    /* Initialize the queues and pthreads and start them */
 
     queues = malloc( num_queues * sizeof( queue_t ) );
-    threads = malloc( num_queues * sizeof( pthread_t ) );
+    threads = malloc( num_queues * sizeof( pthread_t ) * NUM_THREADS_PER_QUEUE );
 
     for ( int i = 0; i < num_queues; ++i ) {
         queues[i].head = NULL;
@@ -193,7 +200,9 @@ int main(int argc, char **argv) {
     }
 
     for ( int j = 0; j < num_queues; ++j ) {
-        pthread_create( &threads[j], NULL, fetch_and_execute, &queues[j]);
+        for (int l = 0; l < NUM_THREADS_PER_QUEUE; ++l) {
+            pthread_create( &threads[j * NUM_THREADS_PER_QUEUE + l], NULL, fetch_and_execute, &queues[j]);
+        }
     }
 
     pthread_create( &generator, NULL, generate, NULL);
@@ -201,7 +210,9 @@ int main(int argc, char **argv) {
     pthread_join( generator, NULL );
 
     for ( int k = 0; k < num_queues; ++k ) {
-        pthread_join( threads[k], NULL );
+        for ( int m = 0; m < NUM_THREADS_PER_QUEUE; ++m ) {
+            pthread_join( threads[k * NUM_THREADS_PER_QUEUE + m], NULL );
+        }
     }
 
     for ( int l = 0; l < num_queues; ++l ) {
