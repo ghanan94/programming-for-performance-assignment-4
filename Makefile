@@ -1,6 +1,6 @@
 RM = rm -f
 CC = gcc
-CFLAGS = -g -std=c99 -lpthread -lssl -lcrypto -O3 -lm -I/usr/local/opt/openssl/include -L/usr/local/opt/openssl/lib
+CFLAGS = -g -std=c99 -lpthread -lssl -lcrypto -lm -I/usr/local/opt/openssl/include -L/usr/local/opt/openssl/lib
 PERCENTILE_SCRIPT = scripts/percentile.py
 
 default: all

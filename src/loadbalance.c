@@ -28,6 +28,7 @@ typedef struct job_t {
     unsigned char* output;
     int rounds;
     struct job_t* next;
+    struct job_t* prev;
 } job_t;
 
 typedef struct {
@@ -62,25 +63,44 @@ void enqueue( job_t* toEnqueue, unsigned int* generator_seed );
 queue_t * queues;
 pthread_t * threads;
 
-static inline void add_to_queue(queue_t* queue, job_t* job) {
-    pthread_mutex_lock(queue->mutex);
-
+//
+// Not thread-safe implementation
+//
+static inline void _add_to_queue(queue_t* queue, job_t* job)
+{
     queue->total_rounds += job->rounds;
 
-    if (queue->head == NULL) {
+    if (queue->head == NULL)
+    {
         queue->head = job;
-    } else {
-
+    }
+    else
+    {
+        /*
         job_t* j = queue->head;
         while ( j->next != NULL ) {
             j = j->next;
         }
         j->next = job;
+        */
 
-        //queue->tail->next = job;
+        queue->tail->next = job;
+        job->prev = queue->tail;
     }
 
     queue->tail = job;
+}
+
+
+//
+// Thread safe (uses the not-thread safe implementation
+// surrounded by the queue's mutex
+//
+static inline void add_to_queue(queue_t* queue, job_t* job)
+{
+    pthread_mutex_lock(queue->mutex);
+
+    _add_to_queue(queue, job);
 
     pthread_mutex_unlock(queue->mutex);
 }
@@ -250,10 +270,15 @@ void *fetch_and_execute( void* arg ) {
             pthread_mutex_unlock( my_q->mutex );
         } else {
             job_t* job = my_q->head;
+
             my_q->head = my_q->head->next;
+
             if (my_q->head == NULL) {
                 my_q->tail = NULL;
+            } else {
+                my_q->head->prev = NULL;
             }
+
             my_q->total_rounds -= job->rounds;
             pthread_mutex_unlock( my_q->mutex );
 
@@ -368,12 +393,14 @@ void *load_balance( void* args ) {
         // Calculate avg number
         //
         avg = 0;
-        for (i = 0; i < num_queues; ++i) {
+        for (i = 0; i < num_queues; ++i)
+        {
             pthread_mutex_lock(queues[i].mutex);
             avg += queues[i].total_rounds;
 
         }
         avg /= num_queues;
+        printf("Avg: %d\n", avg);
 
         if (avg > max_rounds)
         {
@@ -381,33 +408,43 @@ void *load_balance( void* args ) {
             //
             // max length of any queue should be avg
             //
-            for (i = 0; i < num_queues; ++i) {
+            for (i = 0; i < num_queues; ++i)
+            {
                 if (queues[i].total_rounds > avg)
                 {
                     //
                     // Find the point where we start to have
                     // too much work for this queue ("extra" jobs)
                     //
-                    job = queues[i].head;
-                    queues[i].total_rounds = job->rounds;
 
-                    while (queues[i].total_rounds < avg) {
-                        job = job->next;
-                        queues[i].total_rounds += job->rounds;
+                    //
+                    // Append "Extra" jobs to the queue temporarily
+                    //
+                    if (job_list != NULL)
+                    {
+                        job_list->prev = queues[i].tail;
+                        queues[i].tail->next = job_list;
                     }
 
                     //
-                    // Add "extra" jobs from this queue to list of
-                    // other "extra" jobs
+                    // Find the point where there stats to be an inblance in jobs
+                    // (more than 1 job away from avg)
                     //
-                    queues[i].tail->next = job_list;
-                    job_list = job->next;
+                    while ((queues[i].total_rounds - queues[i].tail->rounds) > avg) {
+                        queues[i].total_rounds -= queues[i].tail->rounds;
+                        queues[i].tail = queues[i].tail->prev;
+                    }
 
                     //
-                    // Remove "extra" jobs from this queue
+                    // Detatch this queue from all jobs that are considered
+                    // to make this queue unbalanced ("extra" jobs).
                     //
-                    job->next = NULL;
-                    queues[i].tail = job;
+                    if (queues[i].tail->next != NULL)
+                    {
+                        job_list = queues[i].tail->next;
+                        queues[i].tail->next = NULL;
+                        job_list->prev = NULL;
+                    }
                 }
             }
 
@@ -417,26 +454,10 @@ void *load_balance( void* args ) {
             for (i = 0; i < num_queues - 1 && job_list; ++i) {
                 if (queues[i].total_rounds < avg)
                 {
-                    if (queues[i].head == NULL)
-                    {
-                        queues[i].head = job_list;
-                    }
-                    else
-                    {
-                        job_t* temp = queues[i].head;
-                        while ( temp->next != NULL ) {
-                            temp = temp->next;
-                        }
-                        temp->next = job_list;
-
-                        //queues[i].tail->next = job_list;
-                    }
-
                     //
-                    // Add jobs to this queue to give it more work
+                    // Append all "extra" jobs to this queue (to be trimmed)
                     //
-                    queues[i].tail = job_list;
-                    queues[i].total_rounds += job_list->rounds;
+                    _add_to_queue(&queues[i], job_list);
 
                     //
                     // Find the point where the total_rounds of this queue
@@ -452,6 +473,21 @@ void *load_balance( void* args ) {
                     // the job that was just added to this queue
                     //
                     job_list = queues[i].tail->next;
+
+
+                    //
+                    // NOTE**************
+                    //
+                    // Commented this out because if job_list is not NULL,
+                    // It's prev value will be written to in the following
+                    // _add_to_queue call (if job_list is not NULL, _add_to_queue
+                    // will be guaranteed to be called soon).
+                    //
+                    //if (job_list != NULL)
+                    //{
+                    //    job_list->prev = NULL;
+                    //}
+                    //
 
                     //
                     // Detach newly last job to this queue from rest
@@ -474,31 +510,12 @@ void *load_balance( void* args ) {
                 // queue will have at max (num_queues - 1) jobs more than the
                 // other queues
                 //
-                if (queues[num_queues - 1].head == NULL)
-                {
-                    queues[num_queues - 1].head = job_list;
-                }
-                else
-                {
-                    job_t* temp = queues[num_queues - 1].head;
-                    while ( temp->next != NULL ) {
-                        temp = temp->next;
-                    }
-                    temp->next = job_list;
-
-                    //queues[num_queues - 1].tail->next = job_list;
-                }
-
-                //
-                // Add jobs to this queue to give it more work
-                //
-                queues[num_queues - 1].tail = job_list;
-                queues[num_queues - 1].total_rounds += queues[num_queues - 1].tail->rounds;
+                _add_to_queue(&queues[num_queues - 1], job_list);
 
                 //
                 // Update tail pointer and total_rounds
                 //
-                while ( queues[num_queues - 1].tail->next != NULL )
+                while (queues[num_queues - 1].tail->next != NULL)
                 {
                     queues[num_queues - 1].tail = queues[num_queues - 1].tail->next;
                     queues[num_queues - 1].total_rounds += queues[num_queues - 1].tail->rounds;
