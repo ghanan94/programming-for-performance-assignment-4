@@ -70,11 +70,11 @@
 
 Without loadbalancing, an average 90th percentile value of X.XXX was obtained. With the load balancing, a 90th percentile of Y.YYY was obtained. This resulted in a total speed up of approximately Z.Zx.
 
-\paragraph{Data Structure Modifications.} The load balancing was implemented by first modifying the {\tt queue_t} and {\tt job_t} data structures.
+\paragraph{Data Structure Modifications.} The load balancing was implemented by first modifying the {\tt queue\_t} and {\tt job\_t} data structures.
 \begin{description}
-  \item [Tail pointer] Originally, the {\tt queue_t} data structure was a linked list (of {\tt job_t} nodes) with a pointer to the head of the linked list only. This was the first thing that was modified: a pointer to the tail of the linked list was added to make additions to the linked list faster. With this modification, the runtime to add a new job to the queue was reduced from \( O(n) \) to \( O(1) \) (where \( n \) was the number of jobs currently in the queue.
+  \item [Tail pointer] Originally, the {\tt queue\_t} data structure was a linked list (of {\tt job\_t} nodes) with a pointer to the head of the linked list only. This was the first thing that was modified: a pointer to the tail of the linked list was added to make additions to the linked list faster. With this modification, the runtime to add a new job to the queue was reduced from \( O(n) \) to \( O(1) \) (where \( n \) was the number of jobs currently in the queue.
 
-  \item [Doubly linked list] Originally, the {\tt queue_t} data structure was a singly linked list (of {\tt job_t} nodes). This was the next thing to be modified to allow for easy access to nodes that may be closer to the tail than the head of the linked list. To accomdate this, the linked list was modified to a doubly linked list. The modifications were done to the {\tt job_t} data structure. It originally had only a {\tt next} pointer, but a {\tt prev} pointer was added so that backtracking can occur easily.
+  \item [Doubly linked list] Originally, the {\tt queue\_t} data structure was a singly linked list (of {\tt job\_t} nodes). This was the next thing to be modified to allow for easy access to nodes that may be closer to the tail than the head of the linked list. To accomdate this, the linked list was modified to a doubly linked list. The modifications were done to the {\tt job\_t} data structure. It originally had only a {\tt next} pointer, but a {\tt prev} pointer was added so that backtracking can occur easily.
 \end{description}
 
 \paragraph{Load Balancing Algorithm.} The load balancing was implemented using a dedicated load balancing thread that will (until terminated by setting the {\tt terminate} variable to {\tt 1}) that loops forever doing the following tasks:

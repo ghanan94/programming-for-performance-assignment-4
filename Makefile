@@ -39,10 +39,10 @@ run:
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
 run2:
-	bin/original_loadbalance -a 1 -l 90 -m 3000
+	bin/original_loadbalance -a 1 -l 250 -m 8000 -n 8
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
-	bin/loadbalance -b 1 -a 1 -l 90 -m 3000
+	bin/loadbalance -b 1 -a 1 -l 250 -m 8000 -n 8
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
 .PHONY: original_speedup original_loadbalance speedup loadbalance report clean
