@@ -15,23 +15,58 @@
 
 \maketitle
 
+\section*{Part 1: Performance}
+
+Speed up was obtained when executed with the following parameters:
 \begin{table}[H]
   \centering
   \begin{tabular}{lr}
-    & {\bf Time (s)} \\
+    {\bf Parameter} & {\bf Value} \\
     \hline
-    Run 1 & 6.382 \\
-    Run 2 & 6.330 \\
-    Run 3 & 6.087 \\
-    \hline
-    Average & 6.266 \\
+    Jobs & 100000 \\
+    Policy & 2 \\
+    Lamda & 1 \\
+    Max Rounds & 2000 \\
+    Load Balaning & 0 \\
   \end{tabular}
-  \caption{}
-  \label{tbl-originall}
+  \caption{Implementation without speedup}
+  \label{tbl-part1-params}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{lr}
+    & {\bf 90th percentile} \\
+    \hline
+    Run 1 & 1.465356 \\
+    Run 2 & 1.171047 \\
+    Run 3 & 1.599567 \\
+    \hline
+    Average & 1.411990 \\
+  \end{tabular}
+  \caption{Implementation without speedup}
+  \label{tbl-part1-originall}
 \end{table}
 
 
-\section*{Part 1: Performance}
+\begin{table}[H]
+  \centering
+  \begin{tabular}{lr}
+    & {\bf 90th percentile} \\
+    \hline
+    Run 1 & 0.216320 \\
+    Run 2 & 0.370424 \\
+    Run 3 & 0.228262 \\
+    \hline
+    Average & 0.271669 \\
+  \end{tabular}
+  \caption{Implementation with speedup}
+  \label{tbl-part1-speedup}
+\end{table}
+
+Without speedup, an average 90th percentile value of 1.412 was obtained. With the speedup, a 90th percentile of 0.272 was obtained. This resulted in a total speed up of approximately 5.2x.
+
+The speedup was obtained by using mutliple threads for each queue. This would add quite a bit of overhead so the gains must outweigh the losses in performance by adding extra threads. Using the default parameters resulted in the 'spedup' implementation actually performing worse than the original. To have an actual speedup, the lamda value was reduced to 1 (jobs are more frequently generated).
 
 
 

@@ -1,6 +1,8 @@
 RM = rm -f
 CC = gcc
+
 CFLAGS = -g -std=c99 -lpthread -lssl -lcrypto -O3 -lm -I/usr/local/opt/openssl/include -L/usr/local/opt/openssl/lib
+
 PERCENTILE_SCRIPT = scripts/percentile.py
 
 default: all
@@ -31,14 +33,14 @@ clean:
 	$(RM) bin/loadbalance bin/speedup bin/original_speedup
 	$(RM) report/*.aux report/*.log
 
-run:
-	bin/original_speedup
+run_part_1:
+	bin/original_speedup -l 1
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
-	bin/speedup
+	bin/speedup -l 1
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
-run2:
+run_part_2:
 	bin/original_loadbalance -a 1 -l 250 -m 8000 -n 8
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
