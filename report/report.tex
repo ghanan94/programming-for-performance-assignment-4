@@ -17,17 +17,19 @@
 
 \section*{Part 1: Performance}
 
-\paragraph{} Speed up was obtained when executed with the following parameters:
+\paragraph{Parameters.} Using the default parameters resulted in the 'spedup' implementation actually performing worse than the original because there was not enough work in the queues to be completed. To show any benefits to the changes made to the program to improve performance, the queue should almost never be empty. To achieve this, the arrival rate was kept as high as possible so. As most of the changes did not affect how servicing of jobs was done, the service time was unchanged. To make sure that assignment of jobs did not affect results, the default (round-robin) assignment was used. This is to make sure each queue gets assigned approximately an equal amount of work; random assignment could put more jobs to certain queues than others, which would make it seem like there was something negatively impacting performance. Lastly, to try and reduce the impact of thread scheduling, the amount of queues was kept low - each queue is assigned at least one thread. Speed up was obtained when executed with the following parameters:
+
 \begin{table}[H]
   \centering
   \begin{tabular}{lr}
     {\bf Parameter} & {\bf Value} \\
     \hline
-    Jobs & 100000 \\
-    Policy & 2 \\
+    Jobs & 100000 (default) \\
+    Policy & 2 (default) \\
     Lamda & 1 \\
-    Max Rounds & 2000 \\
-    Load Balaning & 0 \\
+    Max Rounds & 2000 (default) \\
+    Load Balaning & 0 (default) \\
+    Number of Queues & 2 \\
   \end{tabular}
   \caption{Execution parameters for part 1}
   \label{tbl-part1-params}
@@ -36,52 +38,38 @@
 \begin{table}[H]
   \centering
   \begin{tabular}{lr}
-    & {\bf 90th percentile} \\
+    & {\bf No speedup} & {\bf Speedup} \\
     \hline
-    Run 1 & 1.465356 \\
-    Run 2 & 1.171047 \\
-    Run 3 & 1.599567 \\
+    Run 1 & 2.756354 & 0.639008 \\
+    Run 2 & 2.724420 & 0.675093 \\
+    Run 3 & 2.721033 & 0.736818 \\
     \hline
-    Average & 1.411990 \\
+    Average & 2.733902 & 0.683639 \\
   \end{tabular}
-  \caption{Implementation without speedup}
+  \caption{90th percentile for execution}
   \label{tbl-part1-originall}
 \end{table}
 
-\begin{table}[H]
-  \centering
-  \begin{tabular}{lr}
-    & {\bf 90th percentile} \\
-    \hline
-    Run 1 & 0.216320 \\
-    Run 2 & 0.370424 \\
-    Run 3 & 0.228262 \\
-    \hline
-    Average & 0.271669 \\
-  \end{tabular}
-  \caption{Implementation with speedup}
-  \label{tbl-part1-speedup}
-\end{table}
+\paragraph{Results.} Without speedup, an average 90th percentile value of 2.734 was obtained. With the speedup, a 90th percentile of 0.684 was obtained. This resulted in a total speed up of approximately 4.0x. The program was executed on my own computer (not the {\tt ece459-1} server).
 
-\paragraph{Results.} Without speedup, an average 90th percentile value of 1.412 was obtained. With the speedup, a 90th percentile of 0.272 was obtained. This resulted in a total speed up of approximately 5.2x. These program was executed on my own computer (not the {\tt ece459-1} server}.
-
-\paragraph{Changes.} The speedup was obtained by using mutliple threads for each queue. Creating extra threads adds overhead so the gains must outweigh the losses in performance. Using the default parameters resulted in the 'spedup' implementation actually performing worse than the original because there was not enough work in the queues to be completed. To have an actual speedup, the lamda value was reduced to 1 (jobs are more frequently generated) so that there would always be work to do showing the benefits of having multiple threads for each queue.
+\paragraph{Changes.} The speedup was obtained by using mutliple threads for each queue. Creating extra threads adds overhead so the gains must outweigh the losses in performance.
 
 \paragraph{Possible Changes.} Another change that can be done to improve performance of the program is to use a {\tt tail} pointer to the linked list ({\tt queue_t}). If a {\tt tail} pointer was added to the {\tt queue_t} data structure, adding jobs to the queue can occur in \( O(1) \) runtime instead of \( O(n) \) where \( n \) is the number of jobs in the queue currently). However, tests showed that this actually negatively impacted the 90th percentile results. This is because jobs would be added to the queue must faster compared to the original implementation, meaning that more jobs would be sitting in the queue throughout the execution of the program. Since the objective of this report is to obtain the best speedup and not to make the program as efficient as possible, this change was not implemented. However, the code that could be used to make this change is in the {\tt add_to_queue} function, but commented out (line {\tt 76} to replace lines {\tt 70 - 74}).
 
 \section*{Part 2: Load Balancing}
 
-\paragraph{} Speed up was obtained when executed with the following parameters:
+\paragraph{Parameters.} Using the default values did not show any benefit as there was not enough work in the queues to load balance. To really show the benefits of load balancing, service time should be relativly high. This is so that the overhead of load balancing is minimal compared to the actual work that need to be done for each queue; if the service time was too low, the load balancing overwould would greatly impact performance. However, with increased, service times, the number of idle jobs in the queue increases significantly. Idle jobs in any queue should be kept relatively low (5 - 20) to show the benefits of load balancing. If there were too many jobs in any queue, then load balancing has no effect because most likely, queues will get 'out-of-balanced' before they start executing jobs that were moved around. To accomodate this, the arrival rate had to be reduced. Now that arrival rates are low and service times are high, the time to execute the program increased significantly. To reduce program execution time, the number of jobs was reduced so that testing and development can be done quicker, while still showing an accurate representation of the benefits (or drawbacks). Speed up was obtained when executed with the following parameters:
 \begin{table}[H]
   \centering
   \begin{tabular}{lr}
     {\bf Parameter} & {\bf Value} \\
     \hline
-    Jobs & 100000 \\
+    Jobs & 10000 \\
     Policy & (Depends on test) \\
-    Lamda & 1 \\
-    Max Rounds & 2000 \\
+    Lamda & 250 \\
+    Max Rounds & 10000 \\
     Load Balaning & (Depends on test) \\
+    Number of Queues & 8 \\
   \end{tabular}
   \caption{Execution parameters for part 2}
   \label{tbl-part2-params}
@@ -89,35 +77,39 @@
 
 \begin{table}[H]
   \centering
-  \begin{tabular}{lr}
-    & {\bf 90th percentile} \\
+  \begin{tabular}{lrr}
+    & {\bf No load balancing} & {\bf Load balancing}} \\
     \hline
-    Run 1 & 0.0 \\
-    Run 2 & 0.0 \\
-    Run 3 & 0.0 \\
+    Run 1 & 0.194987 & 0.082441 \\
+    Run 2 & 0.106769 & 0.038258 \\
+    Run 3 & 0.121297 & 0.038827 \\
     \hline
-    Average & 0.0 \\
+    Average & 0.141018 & 0.053265 \\
   \end{tabular}
-  \caption{Implementation without load balancing}
+  \caption{90th percentile for execution with random assignment policy}
   \label{tbl-part2-originall}
 \end{table}
 
 \begin{table}[H]
   \centering
-  \begin{tabular}{lr}
-    & {\bf 90th percentile} \\
+  \begin{tabular}{lrr}
+    & {\bf No load balancing} & {\bf Load balancing}} \\
     \hline
-    Run 1 & 0.0 \\
-    Run 2 & 0.0 \\
-    Run 3 & 0.0 \\
+    Run 1 & 0.031668 & 0.023877 \\
+    Run 2 & 0.106431 & 0.085127 \\
+    Run 3 & 0.065667 & 0.029686 \\
     \hline
-    Average & 0.0 \\
+    Average & 0.067922 & 0.046230 \\
   \end{tabular}
-  \caption{Implementation with load balancing}
+  \caption{90th percentile for execution with round-robin policy}
   \label{tbl-part2-loadbalance}
 \end{table}
 
-\paragraph{Results.} Without loadbalancing, an average 90th percentile value of X.XXX was obtained. With the load balancing, a 90th percentile of Y.YYY was obtained. This resulted in a total speed up of approximately Z.Zx.
+\paragraph{Random Assignment Poicy Results.} Without loadbalancing, an average 90th percentile value of 0.141 was obtained. With the load balancing, a 90th percentile of 0.053 was obtained. This resulted in a total speed up of approximately 2.7x. The program was executed on my own computer (not the {\tt ece459-1} server).
+
+\paragraph{Round Robin Policy Results.} Without loadbalancing, an average 90th percentile value of 0.068 was obtained. With the load balancing, a 90th percentile of 0.046 was obtained. This resulted in a total speed up of approximately 1.5x. The program was executed on my own computer (not the {\tt ece459-1} server).
+
+\paragraph{Results' Conclusion.} Load balancing seems to be more effective when the assignment policy is random vs round-robin. This would make sense as with random assignment, not all queues may get an even ammount of work (the expected ammount of distributed work over an infinite amount of jobs is even but we are using finite amounts of work). With round-robin, all queues will initially get an even amount of jobs.
 
 \paragraph{Data Structure Modifications.} The load balancing was implemented by first modifying the {\tt queue\_t} and {\tt job\_t} data structures.
 \begin{description}
