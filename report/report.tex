@@ -63,10 +63,11 @@
   \label{tbl-part1-speedup}
 \end{table}
 
-\paragraph{} Without speedup, an average 90th percentile value of 1.412 was obtained. With the speedup, a 90th percentile of 0.272 was obtained. This resulted in a total speed up of approximately 5.2x.
+\paragraph{Results.} Without speedup, an average 90th percentile value of 1.412 was obtained. With the speedup, a 90th percentile of 0.272 was obtained. This resulted in a total speed up of approximately 5.2x. These program was executed on my own computer (not the {\tt ece459-1} server}.
 
-\paragraph{} The speedup was obtained by using mutliple threads for each queue. Creating extra threads adds overhead so the gains must outweigh the losses in performance. Using the default parameters resulted in the 'spedup' implementation actually performing worse than the original because there was not enough work in the queues to be completed. To have an actual speedup, the lamda value was reduced to 1 (jobs are more frequently generated) so that there would always be work to do.
+\paragraph{Changes.} The speedup was obtained by using mutliple threads for each queue. Creating extra threads adds overhead so the gains must outweigh the losses in performance. Using the default parameters resulted in the 'spedup' implementation actually performing worse than the original because there was not enough work in the queues to be completed. To have an actual speedup, the lamda value was reduced to 1 (jobs are more frequently generated) so that there would always be work to do showing the benefits of having multiple threads for each queue.
 
+\paragraph{Possible Changes.} Another change that can be done to improve performance of the program is to use a {\tt tail} pointer to the linked list ({\tt queue_t}). If a {\tt tail} pointer was added to the {\tt queue_t} data structure, adding jobs to the queue can occur in \( O(1) \) runtime instead of \( O(n) \) where \( n \) is the number of jobs in the queue currently). However, tests showed that this actually negatively impacted the 90th percentile results. This is because jobs would be added to the queue must faster compared to the original implementation, meaning that more jobs would be sitting in the queue throughout the execution of the program. Since the objective of this report is to obtain the best speedup and not to make the program as efficient as possible, this change was not implemented. However, the code that could be used to make this change is in the {\tt add_to_queue} function, but commented out (line {\tt 76} to replace lines {\tt 70 - 74}).
 
 \section*{Part 2: Load Balancing}
 
@@ -116,7 +117,7 @@
   \label{tbl-part2-loadbalance}
 \end{table}
 
-\paragraph{} Without loadbalancing, an average 90th percentile value of X.XXX was obtained. With the load balancing, a 90th percentile of Y.YYY was obtained. This resulted in a total speed up of approximately Z.Zx.
+\paragraph{Results.} Without loadbalancing, an average 90th percentile value of X.XXX was obtained. With the load balancing, a 90th percentile of Y.YYY was obtained. This resulted in a total speed up of approximately Z.Zx.
 
 \paragraph{Data Structure Modifications.} The load balancing was implemented by first modifying the {\tt queue\_t} and {\tt job\_t} data structures.
 \begin{description}
