@@ -17,7 +17,7 @@
 
 \section*{Part 1: Performance}
 
-Speed up was obtained when executed with the following parameters:
+\paragraph{} Speed up was obtained when executed with the following parameters:
 \begin{table}[H]
   \centering
   \begin{tabular}{lr}
@@ -29,7 +29,7 @@ Speed up was obtained when executed with the following parameters:
     Max Rounds & 2000 \\
     Load Balaning & 0 \\
   \end{tabular}
-  \caption{Implementation without speedup}
+  \caption{Execution parameters for part 1}
   \label{tbl-part1-params}
 \end{table}
 
@@ -48,7 +48,6 @@ Speed up was obtained when executed with the following parameters:
   \label{tbl-part1-originall}
 \end{table}
 
-
 \begin{table}[H]
   \centering
   \begin{tabular}{lr}
@@ -64,14 +63,14 @@ Speed up was obtained when executed with the following parameters:
   \label{tbl-part1-speedup}
 \end{table}
 
-Without speedup, an average 90th percentile value of 1.412 was obtained. With the speedup, a 90th percentile of 0.272 was obtained. This resulted in a total speed up of approximately 5.2x.
+\paragraph{} Without speedup, an average 90th percentile value of 1.412 was obtained. With the speedup, a 90th percentile of 0.272 was obtained. This resulted in a total speed up of approximately 5.2x.
 
-The speedup was obtained by using mutliple threads for each queue. This would add quite a bit of overhead so the gains must outweigh the losses in performance by adding extra threads. Using the default parameters resulted in the 'spedup' implementation actually performing worse than the original. To have an actual speedup, the lamda value was reduced to 1 (jobs are more frequently generated).
-
+\paragraph{} The speedup was obtained by using mutliple threads for each queue. Creating extra threads adds overhead so the gains must outweigh the losses in performance. Using the default parameters resulted in the 'spedup' implementation actually performing worse than the original because there was not enough work in the queues to be completed. To have an actual speedup, the lamda value was reduced to 1 (jobs are more frequently generated) so that there would always be work to do.
 
 
 \section*{Part 2: Load Balancing}
 
+\paragraph{} Speed up was obtained when executed with the following parameters:
 \begin{table}[H]
   \centering
   \begin{tabular}{lr}
@@ -83,7 +82,7 @@ The speedup was obtained by using mutliple threads for each queue. This would ad
     Max Rounds & 2000 \\
     Load Balaning & (Depends on test) \\
   \end{tabular}
-  \caption{Execution parameters}
+  \caption{Execution parameters for part 2}
   \label{tbl-part2-params}
 \end{table}
 
@@ -117,13 +116,13 @@ The speedup was obtained by using mutliple threads for each queue. This would ad
   \label{tbl-part2-loadbalance}
 \end{table}
 
-Without loadbalancing, an average 90th percentile value of X.XXX was obtained. With the load balancing, a 90th percentile of Y.YYY was obtained. This resulted in a total speed up of approximately Z.Zx.
+\paragraph{} Without loadbalancing, an average 90th percentile value of X.XXX was obtained. With the load balancing, a 90th percentile of Y.YYY was obtained. This resulted in a total speed up of approximately Z.Zx.
 
 \paragraph{Data Structure Modifications.} The load balancing was implemented by first modifying the {\tt queue\_t} and {\tt job\_t} data structures.
 \begin{description}
-  \item [Tail pointer] Originally, the {\tt queue\_t} data structure was a linked list (of {\tt job\_t} nodes) with a pointer to the head of the linked list only. This was the first thing that was modified: a pointer to the tail of the linked list was added to make additions to the linked list faster. With this modification, the runtime to add a new job to the queue was reduced from \( O(n) \) to \( O(1) \) (where \( n \) was the number of jobs currently in the queue.
+  \item [Tail pointer] Originally, the {\tt queue\_t} data structure was a linked list (of {\tt job\_t} nodes) with a pointer to the head of the linked list only. This was the first thing that was modified: a pointer to the tail of the linked list was added to make additions to the linked list faster. With this modification, the runtime to add a new job to the queue was reduced from \( O(n) \) to \( O(1) \) (where \( n \) was the number of jobs currently in the queue).
 
-  \item [Doubly linked list] Originally, the {\tt queue\_t} data structure was a singly linked list (of {\tt job\_t} nodes). This was the next thing to be modified to allow for easy access to nodes that may be closer to the tail than the head of the linked list. To accomdate this, the linked list was modified to a doubly linked list. The modifications were done to the {\tt job\_t} data structure. It originally had only a {\tt next} pointer, but a {\tt prev} pointer was added so that backtracking can occur easily.
+  \item [Doubly linked list] Originally, the {\tt queue\_t} data structure was a singly linked list (of {\tt job\_t} nodes). This was the next thing to be modified to allow for easy access to nodes that may be closer to the tail than the head of the linked list. To accomdate this, the singly linked list was modified to a doubly linked list. The modifications were done to the {\tt job\_t} data structur. A {\tt prev} pointer was added so that traversing the linked list in reverse order can be done more efficiently.
 \end{description}
 
 \paragraph{Load Balancing Algorithm.} The load balancing was implemented using a dedicated load balancing thread that will (until terminated by setting the {\tt terminate} variable to {\tt 1}) that loops forever doing the following tasks:
@@ -135,13 +134,13 @@ Without loadbalancing, an average 90th percentile value of X.XXX was obtained. W
   \item Release the locks for each of the queues.
 \end{enumerate}
 
-\paragraph{} The load balancing algorithm load balances based on the number of rounds of work that needs to be completed. This is a more accurate representation of how much work each queue has to do compared with just looking at the number of jobs in a queue because different jobs will have varying ammounts of work to do (different service times). The goal is to make each queue have similar (if not identical) ammounts of work to do.
+\paragraph{} The load balancing algorithm load balances based on the number of rounds of work that needs to be completed. This is a more accurate representation of how much work each queue has to do compared with just looking at the number of jobs in a queue because different jobs will have varying amounts of work to do (different service times). The goal is to make each queue have similar (if not identical) amounts of work to do.
 
 \paragraph{} To load balanace:
 \begin{description}
-  \item [Remove 'excess' jobs] First 'excess' jobs (jobs that make queues unbalanced relative to the expected average ammount of work to do because they make the queue do too much work), are removed form the queue and added to a seperate list of all 'excess' jobs. After this step,
-  \item [Add to 'light' queues] Next, queues that are 'light' (queues where their total ammount of work to do is less than the expected average average ammount of work to do), will have jobs added to them to give them more work to do and balance out the work. The jobs given to these queues are taken from the jobs that were removed form the previous step and added to a list of 'excess' jobs.
+  \item [Remove 'excess' jobs] First 'excess' jobs (jobs that make queues unbalanced relative to the expected average amount of work to do because they make the queue do too much work), are removed form the queue and added to a seperate list of all 'excess' jobs. After this step,
+  \item [Add to 'light' queues] Next, queues that are 'light' (queues where their total amount of work to do is less than the expected average average amount of work to do), will have jobs added to them to give them more work to do and balance out the work. The jobs given to these queues are taken from the jobs that were removed form the previous step and added to a list of 'excess' jobs.
 \end{description}
-\paragraph{} After the load balancing is completed all the queues will have relateively equal ammounts of work with some variance, but the variance after load balancing is a lot less than what it was before the load balancing.
+\paragraph{} After the load balancing is completed all the queues will have relateively equal amounts of work with some variance, but the variance after load balancing is a lot less than what it was before the load balancing.
 
 \end{document}
