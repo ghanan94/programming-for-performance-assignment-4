@@ -7,7 +7,7 @@ PERCENTILE_SCRIPT = scripts/percentile.py
 
 default: all
 
-all: bin speedup loadbalance original_speedup original_loadbalance
+all: bin speedup loadbalance original_speedup
 
 bin:
 	mkdir bin
@@ -17,9 +17,6 @@ speedup: src/speedup.c
 
 loadbalance: src/loadbalance.c
 	$(CC) $< $(CFLAGS) -o bin/loadbalance
-
-original_loadbalance: src/original_loadbalance.c
-	$(CC) $< $(CFLAGS) -o bin/original_loadbalance
 
 original_speedup: src/original_speedup.c
 	$(CC) $< $(CFLAGS) -o bin/original_speedup
@@ -34,17 +31,23 @@ clean:
 	$(RM) report/*.aux report/*.log
 
 run_part_1:
-	bin/original_speedup -l 1
+	bin/original_speedup -l 1 -n 2
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
-	bin/speedup -l 1
+	bin/speedup -l 1 -n 2
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
 run_part_2:
-	bin/original_loadbalance -a 1 -l 250 -m 8000 -n 8
-	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
+	bin/loadbalance -b 0 -a 1 -j 10000 -l 250 -m 10000 -n 8
+	$(PERCENTILE_SCRIPT) 10000 0.9 < results.csv
 
-	bin/loadbalance -b 1 -a 1 -l 250 -m 8000 -n 8
-	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
+	bin/loadbalance -b 1 -a 1 -j 10000 -l 250 -m 10000 -n 8
+	$(PERCENTILE_SCRIPT) 10000 0.9 < results.csv
 
-.PHONY: original_speedup original_loadbalance speedup loadbalance report clean
+	bin/loadbalance -b 0 -a 2 -j 10000 -l 250 -m 10000 -n 8
+	$(PERCENTILE_SCRIPT) 10000 0.9 < results.csv
+
+	bin/loadbalance -b 1 -a 2 -j 10000 -l 250 -m 10000 -n 8
+	$(PERCENTILE_SCRIPT) 10000 0.9 < results.csv
+
+.PHONY: original_speedup speedup loadbalance report clean

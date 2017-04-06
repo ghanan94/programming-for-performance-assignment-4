@@ -18,7 +18,7 @@
 #define HASH_BUFFER_LENGTH 32
 #define OUTPUT_FILE_NAME "results.csv"
 
-#define NUM_THREADS_PER_QUEUE (2)
+#define NUM_THREADS_PER_QUEUE (3)
 
 typedef struct job_t {
     int id;
