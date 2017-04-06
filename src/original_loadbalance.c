@@ -1,4 +1,4 @@
-#define _XOPEN_SOURCE 500
+#define _XOPEN_SOURCE 500 
 
 #include <stdlib.h>
 #include <pthread.h>
@@ -18,7 +18,6 @@
 #define HASH_BUFFER_LENGTH 32
 #define OUTPUT_FILE_NAME "results.csv"
 
-#define NUM_THREADS_PER_QUEUE (2)
 
 typedef struct job_t {
     int id;
@@ -33,7 +32,6 @@ typedef struct job_t {
 
 typedef struct {
     job_t* head;
-    job_t* tail;
     pthread_mutex_t* mutex;
 } queue_t;
 
@@ -52,6 +50,7 @@ pthread_mutex_t completed_mutex = PTHREAD_MUTEX_INITIALIZER;
 int id = 0;
 FILE* csv;
 
+void *load_balance( void* args );
 void *generate( void* arg );
 void execute( job_t* toExecute );
 void write_to_file( job_t* toWrite );
@@ -60,26 +59,6 @@ void enqueue( job_t* toEnqueue, unsigned int* generator_seed );
 
 queue_t * queues;
 pthread_t * threads;
-
-static inline void add_to_queue( queue_t* queue, job_t* job ) {
-    pthread_mutex_lock(queue->mutex);
-
-    if (queue->head == NULL) {
-        queue->head = job;
-    } else {
-        job_t* j = queue->head;
-        while ( j->next != NULL ) {
-            j = j->next;
-        }
-        j->next = job;
-
-        //queue->tail->next = job;
-    }
-
-    queue->tail = job;
-
-    pthread_mutex_unlock(queue->mutex);
-}
 
 /* error handling macro from Patrick Lam */
 void abort_(const char * s, ...) {
@@ -132,6 +111,7 @@ int timeval_subtract (struct timeval *result, struct timeval *x, struct timeval 
 int main(int argc, char **argv) {
     int c;
     pthread_t generator;
+    pthread_t loadbalancer;
 
     while ((c = getopt (argc, argv, "n:a:j:b:l:m:")) != -1) {
     switch (c) {
@@ -182,7 +162,7 @@ int main(int argc, char **argv) {
     }
   }
 
-    printf("Starting up with %d queues, assignment policy %d, %d jobs, lambda %d, max rounds %d, and load balancing %d.\n",
+    printf("Starting up with %d queues, assignment policy %d, %d jobs, lambda %d, max rounds %d, and load balancing %d.\n", 
         num_queues, policy, num_jobs, lambda, max_rounds, balance_load);
 
     csv = fopen(OUTPUT_FILE_NAME, "w+");
@@ -191,8 +171,8 @@ int main(int argc, char **argv) {
    /* Initialize the queues and pthreads and start them */
 
     queues = malloc( num_queues * sizeof( queue_t ) );
-    threads = malloc( num_queues * sizeof( pthread_t ) * NUM_THREADS_PER_QUEUE );
-
+    threads = malloc( num_queues * sizeof( pthread_t ) );
+   
     for ( int i = 0; i < num_queues; ++i ) {
         queues[i].head = NULL;
         queues[i].mutex = malloc( sizeof( pthread_mutex_t ) );
@@ -200,28 +180,31 @@ int main(int argc, char **argv) {
     }
 
     for ( int j = 0; j < num_queues; ++j ) {
-        for (int l = 0; l < NUM_THREADS_PER_QUEUE; ++l) {
-            pthread_create( &threads[j * NUM_THREADS_PER_QUEUE + l], NULL, fetch_and_execute, &queues[j]);
-        }
+        pthread_create( &threads[j], NULL, fetch_and_execute, &queues[j]);
     }
-
+    
     pthread_create( &generator, NULL, generate, NULL);
+
+    if ( 1 == balance_load ) {
+        pthread_create( &loadbalancer, NULL, load_balance, NULL);
+    }
 
     pthread_join( generator, NULL );
 
     for ( int k = 0; k < num_queues; ++k ) {
-        for ( int m = 0; m < NUM_THREADS_PER_QUEUE; ++m ) {
-            pthread_join( threads[k * NUM_THREADS_PER_QUEUE + m], NULL );
-        }
+        pthread_join( threads[k], NULL );
     }
 
     for ( int l = 0; l < num_queues; ++l ) {
         pthread_mutex_destroy(queues[l].mutex);
         free(queues[l].mutex);
     }
-
+    
     free(queues);
 
+    if ( 1 == balance_load ) {
+        pthread_join( loadbalancer, NULL );
+    }
 
     free( threads );
     fclose( csv );
@@ -247,25 +230,25 @@ void *fetch_and_execute( void* arg ) {
             execute( job );
             write_to_file( job );
         }
-
+    
     }
     pthread_exit( NULL );
 }
 
 void execute( job_t* job ) {
-
+ 
     struct timeval begin_execution;
-    gettimeofday( &begin_execution, NULL );
+    gettimeofday( &begin_execution, NULL ); 
     unsigned char* output_buffer = calloc( HASH_BUFFER_LENGTH , sizeof ( unsigned char ) );
 
     for( int i = 0; i < job->rounds; ++i ) {
         SHA256( job->data, HASH_BUFFER_LENGTH, output_buffer );
         memcpy( job->data, output_buffer, HASH_BUFFER_LENGTH );
-    }
+	}
     job->output = output_buffer;
 
     gettimeofday( &job->departure_time, NULL );
-    timeval_subtract (&job->execution_time, &(job->departure_time), &(begin_execution));
+    timeval_subtract (&job->execution_time, &(job->departure_time), &(begin_execution)); 
 }
 
 void *generate( void* arg ) {
@@ -278,7 +261,7 @@ void *generate( void* arg ) {
         ++id;
 
         new_job->rounds = ceil( (double)rand_r(&generator_seed)/(double)RAND_MAX * max_rounds );
-        new_job->data = random_string( HASH_BUFFER_LENGTH, &generator_seed );
+        new_job->data = random_string( HASH_BUFFER_LENGTH, &generator_seed ); 
 
         enqueue( new_job, &generator_seed );
 
@@ -293,12 +276,12 @@ void *generate( void* arg ) {
 }
 
 void write_to_file( job_t* job ) {
-
+    
     struct timeval response_time;
-    timeval_subtract (&response_time, &(job->departure_time), &(job->arrival_time));
-
+    timeval_subtract (&response_time, &(job->departure_time), &(job->arrival_time)); 
+    
     pthread_mutex_lock( &completed_mutex );
-
+    
     /* Write to file should probably be serialized because jumbled output is bad.*/
     fprintf( csv, "%d,", job->id );
     fprintf( csv, "%ld.%06ld", job->arrival_time.tv_sec, job->arrival_time.tv_usec );
@@ -326,14 +309,32 @@ void write_to_file( job_t* job ) {
 void enqueue( job_t* job, unsigned int * generator_seed ) {
 
     queue_t* selected;
-
+    
     if (RANDOM_ASSIGNMENT == policy ) {
-        selected = &queues[ rand_r(generator_seed) % num_queues ];
+        selected = &queues[ rand_r(generator_seed) % num_queues ]; 
     } else if ( ROUND_ROBIN_ASSIGNMENT == policy ) {
         selected = &queues[ job->id % num_queues ];
     } else {
        abort_("[enqueue] Invalid assignment policy selected: %d\n", policy);
     }
 
-    add_to_queue(selected, job);
+    pthread_mutex_lock(selected->mutex);
+    if (selected->head == NULL) {
+        selected->head = job;
+    } else {
+        job_t* j = selected->head;
+        while ( j->next != NULL ) {
+            j = j->next;
+        }
+        j->next = job;
+    }
+    pthread_mutex_unlock(selected->mutex);
 }
+
+void *load_balance( void* args ) {
+
+
+    pthread_exit( NULL );
+}
+
+

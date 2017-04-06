@@ -1,4 +1,4 @@
-#define _XOPEN_SOURCE 500 
+#define _XOPEN_SOURCE 500
 
 #include <stdlib.h>
 #include <pthread.h>
@@ -28,10 +28,13 @@ typedef struct job_t {
     unsigned char* output;
     int rounds;
     struct job_t* next;
+    struct job_t* prev;
 } job_t;
 
 typedef struct {
     job_t* head;
+    job_t* tail;
+    int total_rounds;
     pthread_mutex_t* mutex;
 } queue_t;
 
@@ -59,6 +62,40 @@ void enqueue( job_t* toEnqueue, unsigned int* generator_seed );
 
 queue_t * queues;
 pthread_t * threads;
+
+//
+// Not thread-safe implementation
+//
+static inline void _add_to_queue(queue_t* queue, job_t* job)
+{
+    queue->total_rounds += job->rounds;
+
+    if (queue->head == NULL)
+    {
+        queue->head = job;
+    }
+    else
+    {
+        queue->tail->next = job;
+        job->prev = queue->tail;
+    }
+
+    queue->tail = job;
+}
+
+
+//
+// Thread safe (uses the not-thread safe implementation
+// surrounded by the queue's mutex
+//
+static inline void add_to_queue(queue_t* queue, job_t* job)
+{
+    pthread_mutex_lock(queue->mutex);
+
+    _add_to_queue(queue, job);
+
+    pthread_mutex_unlock(queue->mutex);
+}
 
 /* error handling macro from Patrick Lam */
 void abort_(const char * s, ...) {
@@ -162,7 +199,7 @@ int main(int argc, char **argv) {
     }
   }
 
-    printf("Starting up with %d queues, assignment policy %d, %d jobs, lambda %d, max rounds %d, and load balancing %d.\n", 
+    printf("Starting up with %d queues, assignment policy %d, %d jobs, lambda %d, max rounds %d, and load balancing %d.\n",
         num_queues, policy, num_jobs, lambda, max_rounds, balance_load);
 
     csv = fopen(OUTPUT_FILE_NAME, "w+");
@@ -172,9 +209,11 @@ int main(int argc, char **argv) {
 
     queues = malloc( num_queues * sizeof( queue_t ) );
     threads = malloc( num_queues * sizeof( pthread_t ) );
-   
+
     for ( int i = 0; i < num_queues; ++i ) {
         queues[i].head = NULL;
+        queues[i].tail = NULL;
+        queues[i].total_rounds = 0;
         queues[i].mutex = malloc( sizeof( pthread_mutex_t ) );
         pthread_mutex_init(queues[i].mutex, NULL);
     }
@@ -182,7 +221,7 @@ int main(int argc, char **argv) {
     for ( int j = 0; j < num_queues; ++j ) {
         pthread_create( &threads[j], NULL, fetch_and_execute, &queues[j]);
     }
-    
+
     pthread_create( &generator, NULL, generate, NULL);
 
     if ( 1 == balance_load ) {
@@ -199,13 +238,12 @@ int main(int argc, char **argv) {
         pthread_mutex_destroy(queues[l].mutex);
         free(queues[l].mutex);
     }
-    
-    free(queues);
 
     if ( 1 == balance_load ) {
         pthread_join( loadbalancer, NULL );
     }
 
+    free(queues);
     free( threads );
     fclose( csv );
     pthread_exit( NULL );
@@ -224,31 +262,40 @@ void *fetch_and_execute( void* arg ) {
             pthread_mutex_unlock( my_q->mutex );
         } else {
             job_t* job = my_q->head;
+
             my_q->head = my_q->head->next;
+
+            if (my_q->head == NULL) {
+                my_q->tail = NULL;
+            } else {
+                my_q->head->prev = NULL;
+            }
+
+            my_q->total_rounds -= job->rounds;
             pthread_mutex_unlock( my_q->mutex );
 
             execute( job );
             write_to_file( job );
         }
-    
+
     }
     pthread_exit( NULL );
 }
 
 void execute( job_t* job ) {
- 
+
     struct timeval begin_execution;
-    gettimeofday( &begin_execution, NULL ); 
+    gettimeofday( &begin_execution, NULL );
     unsigned char* output_buffer = calloc( HASH_BUFFER_LENGTH , sizeof ( unsigned char ) );
 
     for( int i = 0; i < job->rounds; ++i ) {
         SHA256( job->data, HASH_BUFFER_LENGTH, output_buffer );
         memcpy( job->data, output_buffer, HASH_BUFFER_LENGTH );
-	}
+    }
     job->output = output_buffer;
 
     gettimeofday( &job->departure_time, NULL );
-    timeval_subtract (&job->execution_time, &(job->departure_time), &(begin_execution)); 
+    timeval_subtract (&job->execution_time, &(job->departure_time), &(begin_execution));
 }
 
 void *generate( void* arg ) {
@@ -261,7 +308,7 @@ void *generate( void* arg ) {
         ++id;
 
         new_job->rounds = ceil( (double)rand_r(&generator_seed)/(double)RAND_MAX * max_rounds );
-        new_job->data = random_string( HASH_BUFFER_LENGTH, &generator_seed ); 
+        new_job->data = random_string( HASH_BUFFER_LENGTH, &generator_seed );
 
         enqueue( new_job, &generator_seed );
 
@@ -276,12 +323,12 @@ void *generate( void* arg ) {
 }
 
 void write_to_file( job_t* job ) {
-    
+
     struct timeval response_time;
-    timeval_subtract (&response_time, &(job->departure_time), &(job->arrival_time)); 
-    
+    timeval_subtract (&response_time, &(job->departure_time), &(job->arrival_time));
+
     pthread_mutex_lock( &completed_mutex );
-    
+
     /* Write to file should probably be serialized because jumbled output is bad.*/
     fprintf( csv, "%d,", job->id );
     fprintf( csv, "%ld.%06ld", job->arrival_time.tv_sec, job->arrival_time.tv_usec );
@@ -309,9 +356,9 @@ void write_to_file( job_t* job ) {
 void enqueue( job_t* job, unsigned int * generator_seed ) {
 
     queue_t* selected;
-    
+
     if (RANDOM_ASSIGNMENT == policy ) {
-        selected = &queues[ rand_r(generator_seed) % num_queues ]; 
+        selected = &queues[ rand_r(generator_seed) % num_queues ];
     } else if ( ROUND_ROBIN_ASSIGNMENT == policy ) {
         selected = &queues[ job->id % num_queues ];
     } else {
@@ -327,14 +374,163 @@ void enqueue( job_t* job, unsigned int * generator_seed ) {
             j = j->next;
         }
         j->next = job;
+        job->prev = j;
     }
+    selected->tail = job;
+    selected->total_rounds += job->rounds;
     pthread_mutex_unlock(selected->mutex);
 }
 
 void *load_balance( void* args ) {
+    int avg;
+    int i;
+    int j;
+    job_t* job;
+    job_t* job_list;
 
+    job_list = NULL;
+
+    while (terminate == 0) {
+        job_list = NULL;
+        usleep(100000);
+
+        //
+        // Calculate avg number
+        //
+        avg = 0;
+        for (i = 0; i < num_queues; ++i)
+        {
+            pthread_mutex_lock(queues[i].mutex);
+            avg += queues[i].total_rounds;
+
+        }
+        avg /= num_queues;
+        printf("avg: %d\n", avg);
+        if (avg > max_rounds)
+        {
+
+            //
+            // max length of any queue should be avg
+            //
+            for (i = 0; i < num_queues; ++i)
+            {
+                if (queues[i].total_rounds > avg)
+                {
+                    //
+                    // Find the point where we start to have
+                    // too much work for this queue ("extra" jobs)
+                    //
+
+                    //
+                    // Append "Extra" jobs to the queue temporarily
+                    //
+                    if (job_list != NULL)
+                    {
+                        job_list->prev = queues[i].tail;
+                        queues[i].tail->next = job_list;
+                    }
+
+                    //
+                    // Find the point where there stats to be an inblance in jobs
+                    // (more than 1 job away from avg)
+                    //
+                    while ((queues[i].total_rounds - queues[i].tail->rounds) > avg) {
+                        queues[i].total_rounds -= queues[i].tail->rounds;
+                        queues[i].tail = queues[i].tail->prev;
+                    }
+
+                    //
+                    // Detatch this queue from all jobs that are considered
+                    // to make this queue unbalanced ("extra" jobs).
+                    //
+                    if (queues[i].tail->next != NULL)
+                    {
+                        job_list = queues[i].tail->next;
+                        queues[i].tail->next = NULL;
+                        job_list->prev = NULL;
+                    }
+                }
+            }
+
+            //
+            // Add to any queues at have less than avg length (except last)
+            //
+            for (i = 0; i < num_queues - 1 && job_list; ++i) {
+                if (queues[i].total_rounds < avg)
+                {
+                    //
+                    // Append all "extra" jobs to this queue (to be trimmed)
+                    //
+                    _add_to_queue(&queues[i], job_list);
+
+                    //
+                    // Find the point where the total_rounds of this queue
+                    // is equal to or just above average (make it approximately avg)
+                    //
+                    while (queues[i].total_rounds < avg && queues[i].tail->next) {
+                        queues[i].tail = queues[i].tail->next;
+                        queues[i].total_rounds += queues[i].tail->rounds;
+                    }
+
+                    //
+                    // Update list of "extra" jobs to the one after
+                    // the job that was just added to this queue
+                    //
+                    job_list = queues[i].tail->next;
+
+
+                    //
+                    // NOTE**************
+                    //
+                    // Commented this out because if job_list is not NULL,
+                    // It's prev value will be written to in the following
+                    // _add_to_queue call (if job_list is not NULL, _add_to_queue
+                    // will be guaranteed to be called soon).
+                    //
+                    //if (job_list != NULL)
+                    //{
+                    //    job_list->prev = NULL;
+                    //}
+                    //
+
+                    //
+                    // Detach newly last job to this queue from rest
+                    // of list of "extra" jobs
+                    //
+                    queues[i].tail->next = NULL;
+                }
+            }
+
+            //
+            // If there is still "extra" jobs left, put it in the final queue (everything else
+            // is approximately avg so there shouldn't be many jobs left to throw off
+            // the balance that much).
+            //
+            if (job_list != NULL) {
+                //
+                // Put rest in last queue.
+                // either this queue has less than the other queues,
+                // or is equal to the avg. after this, the final
+                // queue will have at max (num_queues - 1) jobs more than the
+                // other queues
+                //
+                _add_to_queue(&queues[num_queues - 1], job_list);
+
+                //
+                // Update tail pointer and total_rounds
+                //
+                while (queues[num_queues - 1].tail->next != NULL)
+                {
+                    queues[num_queues - 1].tail = queues[num_queues - 1].tail->next;
+                    queues[num_queues - 1].total_rounds += queues[num_queues - 1].tail->rounds;
+                }
+            }
+        }
+
+        for (i = 0; i < num_queues; ++i) {
+            pthread_mutex_unlock(queues[i].mutex);
+        }
+    }
 
     pthread_exit( NULL );
 }
-
-

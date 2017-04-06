@@ -1,11 +1,13 @@
 RM = rm -f
 CC = gcc
-CFLAGS = -std=c99 -lpthread -lssl -lcrypto -O3 -lm -I/usr/local/opt/openssl/include -L/usr/local/opt/openssl/lib
+
+CFLAGS = -g -std=c99 -lpthread -lssl -lcrypto -O3 -lm -I/usr/local/opt/openssl/include -L/usr/local/opt/openssl/lib
+
 PERCENTILE_SCRIPT = scripts/percentile.py
 
 default: all
 
-all: bin speedup loadbalance original_speedup
+all: bin speedup loadbalance original_speedup original_loadbalance
 
 bin:
 	mkdir bin
@@ -15,6 +17,9 @@ speedup: src/speedup.c
 
 loadbalance: src/loadbalance.c
 	$(CC) $< $(CFLAGS) -o bin/loadbalance
+
+original_loadbalance: src/original_loadbalance.c
+	$(CC) $< $(CFLAGS) -o bin/original_loadbalance
 
 original_speedup: src/original_speedup.c
 	$(CC) $< $(CFLAGS) -o bin/original_speedup
@@ -28,11 +33,18 @@ clean:
 	$(RM) bin/loadbalance bin/speedup bin/original_speedup
 	$(RM) report/*.aux report/*.log
 
-run:
+run_part_1:
 	bin/original_speedup -l 1
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
 	bin/speedup -l 1
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
-.PHONY: speedup loadbalance report clean
+run_part_2:
+	bin/original_loadbalance -a 1 -l 250 -m 8000 -n 8
+	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
+
+	bin/loadbalance -b 1 -a 1 -l 250 -m 8000 -n 8
+	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
+
+.PHONY: original_speedup original_loadbalance speedup loadbalance report clean
