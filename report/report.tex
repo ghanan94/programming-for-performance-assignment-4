@@ -15,6 +15,7 @@
 
 \maketitle
 
+\newpage
 \section*{Part 1: Performance}
 
 \paragraph{Parameters.} Using the default parameters resulted in the 'spedup' implementation actually performing worse than the original because there was not enough work in the queues to be completed. To show any benefits to the changes made to the program to improve performance, the queue should almost never be empty. To achieve this, the arrival rate was kept as high as possible so. As most of the changes did not affect how servicing of jobs was done, the service time was unchanged. To make sure that assignment of jobs did not affect results, the default (round-robin) assignment was used. This is to make sure each queue gets assigned approximately an equal amount of work; random assignment could put more jobs to certain queues than others, which would make it seem like there was something negatively impacting performance. Lastly, to try and reduce the impact of thread scheduling, the amount of queues was kept low - each queue is assigned at least one thread. Speed up was obtained when executed with the following parameters:
@@ -37,7 +38,7 @@
 
 \begin{table}[H]
   \centering
-  \begin{tabular}{lr}
+  \begin{tabular}{lrr}
     & {\bf No speedup} & {\bf Speedup} \\
     \hline
     Run 1 & 2.756354 & 0.639008 \\
@@ -47,18 +48,19 @@
     Average & 2.733902 & 0.683639 \\
   \end{tabular}
   \caption{90th percentile for execution}
-  \label{tbl-part1-originall}
+  \label{tbl-part1-90th-percentile}
 \end{table}
 
 \paragraph{Results.} Without speedup, an average 90th percentile value of 2.734 was obtained. With the speedup, a 90th percentile of 0.684 was obtained. This resulted in a total speed up of approximately 4.0x. The program was executed on my own computer (not the {\tt ece459-1} server).
 
 \paragraph{Changes.} The speedup was obtained by using mutliple threads for each queue. Creating extra threads adds overhead so the gains must outweigh the losses in performance.
 
-\paragraph{Possible Changes.} Another change that can be done to improve performance of the program is to use a {\tt tail} pointer to the linked list ({\tt queue_t}). If a {\tt tail} pointer was added to the {\tt queue_t} data structure, adding jobs to the queue can occur in \( O(1) \) runtime instead of \( O(n) \) where \( n \) is the number of jobs in the queue currently). However, tests showed that this actually negatively impacted the 90th percentile results. This is because jobs would be added to the queue must faster compared to the original implementation, meaning that more jobs would be sitting in the queue throughout the execution of the program. Since the objective of this report is to obtain the best speedup and not to make the program as efficient as possible, this change was not implemented. However, the code that could be used to make this change is in the {\tt add_to_queue} function, but commented out (line {\tt 76} to replace lines {\tt 70 - 74}).
+\paragraph{Possible Changes.} Another change that can be done to improve performance of the program is to use a {\tt tail} pointer to the linked list ({\tt queue\_t}). If a {\tt tail} pointer was added to the {\tt queue\_t} data structure, adding jobs to the queue can occur in \( O(1) \) runtime instead of \( O(n) \) where \( n \) is the number of jobs in the queue currently). However, tests showed that this actually negatively impacted the 90th percentile results. This is because jobs would be added to the queue must faster compared to the original implementation, meaning that more jobs would be sitting in the queue throughout the execution of the program. Since the objective of this report is to obtain the best speedup and not to make the program as efficient as possible, this change was not implemented. However, the code that could be used to make this change is in the {\tt add\_to\_queue} function, but commented out (line {\tt 76} to replace lines {\tt 70 - 74}).
 
+\pagebreak
 \section*{Part 2: Load Balancing}
 
-\paragraph{Parameters.} Using the default values did not show any benefit as there was not enough work in the queues to load balance. To really show the benefits of load balancing, service time should be relativly high. This is so that the overhead of load balancing is minimal compared to the actual work that need to be done for each queue; if the service time was too low, the load balancing overwould would greatly impact performance. However, with increased, service times, the number of idle jobs in the queue increases significantly. Idle jobs in any queue should be kept relatively low (5 - 20) to show the benefits of load balancing. If there were too many jobs in any queue, then load balancing has no effect because most likely, queues will get 'out-of-balanced' before they start executing jobs that were moved around. To accomodate this, the arrival rate had to be reduced. Now that arrival rates are low and service times are high, the time to execute the program increased significantly. To reduce program execution time, the number of jobs was reduced so that testing and development can be done quicker, while still showing an accurate representation of the benefits (or drawbacks). Speed up was obtained when executed with the following parameters:
+\paragraph{Parameters.} To really show the benefits of load balancing, service time should be relativly high. This is so that the overhead of load balancing is minimal compared to the actual work that need to be done for each queue; if the service time was too low, the load balancing overhead would negatively impact performance. However, with increased, service times, the number of idle jobs in the queue increases significantly. Idle jobs in any queue should be kept relatively low (5 - 20) to show the benefits of load balancing. If there were too many jobs in any queue, queues will get 'out-of-balanced' before they start executing jobs that were moved around by the load balancer. To accomodate this, the arrival rate had to be reduced. Now that arrival rates are low and service times are high, the time to execute the program increased significantly. To reduce program execution time, the number of jobs was reduced so that testing and development can be done quicker, while still showing an accurate representation of the benefits (or drawbacks). Speed up was obtained when executed with the following parameters:
 \begin{table}[H]
   \centering
   \begin{tabular}{lr}
@@ -77,32 +79,17 @@
 
 \begin{table}[H]
   \centering
-  \begin{tabular}{lrr}
-    & {\bf No load balancing} & {\bf Load balancing}} \\
+  \begin{tabular}{lrrrr}
+    & {\bf RA - NLB} & {\bf RA - LB} & {\bf RR - NLB} & {\bf RR - LB} \\
     \hline
-    Run 1 & 0.194987 & 0.082441 \\
-    Run 2 & 0.106769 & 0.038258 \\
-    Run 3 & 0.121297 & 0.038827 \\
+    Run 1 & 0.194987 & 0.082441 & 0.031668 & 0.023877 \\
+    Run 2 & 0.106769 & 0.038258 & 0.106431 & 0.085127 \\
+    Run 3 & 0.121297 & 0.038827 & 0.065667 & 0.029686 \\
     \hline
-    Average & 0.141018 & 0.053265 \\
+    Average & 0.141018 & 0.053265 & 0.067922 & 0.046230 \\
   \end{tabular}
-  \caption{90th percentile for execution with random assignment policy}
-  \label{tbl-part2-originall}
-\end{table}
-
-\begin{table}[H]
-  \centering
-  \begin{tabular}{lrr}
-    & {\bf No load balancing} & {\bf Load balancing}} \\
-    \hline
-    Run 1 & 0.031668 & 0.023877 \\
-    Run 2 & 0.106431 & 0.085127 \\
-    Run 3 & 0.065667 & 0.029686 \\
-    \hline
-    Average & 0.067922 & 0.046230 \\
-  \end{tabular}
-  \caption{90th percentile for execution with round-robin policy}
-  \label{tbl-part2-loadbalance}
+  \caption{90th percentile for execution (RA = random assignment policy; RR = round robin assignment policy; NLB = no load balancing; LB = load balancing)}
+  \label{tbl-part2-90th-percentile}
 \end{table}
 
 \paragraph{Random Assignment Poicy Results.} Without loadbalancing, an average 90th percentile value of 0.141 was obtained. With the load balancing, a 90th percentile of 0.053 was obtained. This resulted in a total speed up of approximately 2.7x. The program was executed on my own computer (not the {\tt ece459-1} server).
@@ -118,7 +105,7 @@
   \item [Doubly linked list] Originally, the {\tt queue\_t} data structure was a singly linked list (of {\tt job\_t} nodes). This was the next thing to be modified to allow for easy access to nodes that may be closer to the tail than the head of the linked list. To accomdate this, the singly linked list was modified to a doubly linked list. The modifications were done to the {\tt job\_t} data structur. A {\tt prev} pointer was added so that traversing the linked list in reverse order can be done more efficiently.
 \end{description}
 
-\paragraph{Load Balancing Algorithm.} The load balancing was implemented using a dedicated load balancing thread that will (until terminated by setting the {\tt terminate} variable to {\tt 1}) that loops forever doing the following tasks:
+\paragraph{Load Balancing Algorithm.} The load balancing was implemented using a dedicated load balancing thread that will loop forever doing the following tasks until all jobs are completed:
 \begin{enumerate}
   \item Sleep for 0.2 seconds.
   \item Obtain the locks for each of the queues.
@@ -127,13 +114,11 @@
   \item Release the locks for each of the queues.
 \end{enumerate}
 
-\paragraph{} The load balancing algorithm load balances based on the number of rounds of work that needs to be completed. This is a more accurate representation of how much work each queue has to do compared with just looking at the number of jobs in a queue because different jobs will have varying amounts of work to do (different service times). The goal is to make each queue have similar (if not identical) amounts of work to do.
-
-\paragraph{} To load balanace:
+\paragraph{} The load balancing algorithm load balances based on the number of rounds of work that needs to be completed. This is a more accurate representation of how much work each queue has to do compared with just looking at the number of jobs in a queue because different jobs will have varying amounts of work to do (different service times). The goal is to make each queue have similar (if not identical) amounts of work to do. To load balanace:
 \begin{description}
   \item [Remove 'excess' jobs] First 'excess' jobs (jobs that make queues unbalanced relative to the expected average amount of work to do because they make the queue do too much work), are removed form the queue and added to a seperate list of all 'excess' jobs. After this step,
   \item [Add to 'light' queues] Next, queues that are 'light' (queues where their total amount of work to do is less than the expected average average amount of work to do), will have jobs added to them to give them more work to do and balance out the work. The jobs given to these queues are taken from the jobs that were removed form the previous step and added to a list of 'excess' jobs.
 \end{description}
-\paragraph{} After the load balancing is completed all the queues will have relateively equal amounts of work with some variance, but the variance after load balancing is a lot less than what it was before the load balancing.
+\paragraph{} After load balancing, the queues will have relateively equal amounts of work with some variance, but the variance after load balancing is a lot less than what it was before load balancing.
 
 \end{document}
