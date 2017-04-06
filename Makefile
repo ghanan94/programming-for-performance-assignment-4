@@ -7,7 +7,7 @@ PERCENTILE_SCRIPT = scripts/percentile.py
 
 default: all
 
-all: bin speedup loadbalance original_speedup original_loadbalance
+all: bin speedup loadbalance original_speedup
 
 bin:
 	mkdir bin
@@ -17,9 +17,6 @@ speedup: src/speedup.c
 
 loadbalance: src/loadbalance.c
 	$(CC) $< $(CFLAGS) -o bin/loadbalance
-
-original_loadbalance: src/original_loadbalance.c
-	$(CC) $< $(CFLAGS) -o bin/original_loadbalance
 
 original_speedup: src/original_speedup.c
 	$(CC) $< $(CFLAGS) -o bin/original_speedup
@@ -53,4 +50,4 @@ run_part_2:
 	bin/loadbalance -b 1 -a 2 -j 10000 -l 250 -m 10000 -n 8
 	$(PERCENTILE_SCRIPT) 10000 0.9 < results.csv
 
-.PHONY: original_speedup original_loadbalance speedup loadbalance report clean
+.PHONY: original_speedup speedup loadbalance report clean
