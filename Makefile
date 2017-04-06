@@ -34,17 +34,23 @@ clean:
 	$(RM) report/*.aux report/*.log
 
 run_part_1:
-	bin/original_speedup -l 1
+	bin/original_speedup -l 1 -n 2
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
-	bin/speedup -l 1
+	bin/speedup -l 1 -n 2
 	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
 
 run_part_2:
-	bin/original_loadbalance -a 1 -l 250 -m 8000 -n 8
-	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
+	bin/loadbalance -b 0 -a 1 -j 10000 -l 250 -m 10000 -n 8
+	$(PERCENTILE_SCRIPT) 10000 0.9 < results.csv
 
-	bin/loadbalance -b 1 -a 1 -l 250 -m 8000 -n 8
-	$(PERCENTILE_SCRIPT) 100000 0.9 < results.csv
+	bin/loadbalance -b 1 -a 1 -j 10000 -l 250 -m 10000 -n 8
+	$(PERCENTILE_SCRIPT) 10000 0.9 < results.csv
+
+	bin/loadbalance -b 0 -a 2 -j 10000 -l 250 -m 10000 -n 8
+	$(PERCENTILE_SCRIPT) 10000 0.9 < results.csv
+
+	bin/loadbalance -b 1 -a 2 -j 10000 -l 250 -m 10000 -n 8
+	$(PERCENTILE_SCRIPT) 10000 0.9 < results.csv
 
 .PHONY: original_speedup original_loadbalance speedup loadbalance report clean

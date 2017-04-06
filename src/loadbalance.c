@@ -365,20 +365,7 @@ void enqueue( job_t* job, unsigned int * generator_seed ) {
        abort_("[enqueue] Invalid assignment policy selected: %d\n", policy);
     }
 
-    pthread_mutex_lock(selected->mutex);
-    if (selected->head == NULL) {
-        selected->head = job;
-    } else {
-        job_t* j = selected->head;
-        while ( j->next != NULL ) {
-            j = j->next;
-        }
-        j->next = job;
-        job->prev = j;
-    }
-    selected->tail = job;
-    selected->total_rounds += job->rounds;
-    pthread_mutex_unlock(selected->mutex);
+    add_to_queue(selected, job);
 }
 
 void *load_balance( void* args ) {
@@ -392,7 +379,7 @@ void *load_balance( void* args ) {
 
     while (terminate == 0) {
         job_list = NULL;
-        usleep(100000);
+        usleep(200000);
 
         //
         // Calculate avg number
@@ -405,7 +392,7 @@ void *load_balance( void* args ) {
 
         }
         avg /= num_queues;
-        printf("avg: %d\n", avg);
+        //printf("avg: %d\n", avg);
         if (avg > max_rounds)
         {
 
